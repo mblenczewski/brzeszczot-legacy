@@ -49,5 +49,28 @@ if [ ! -f "$DEP/built-deps.flag" ]; then
 		EXEC cp "$LIB/imgui/$__hdr" "$DEP/include/$__hdr"
 	done
 
+	## build and install ritobin
+	EXEC cmake -S "$LIB/ritobin" -B "$OBJ/ritobin" $LIB_CMAKE_OPTS
+	EXEC cmake --build "$OBJ/ritobin"
+	EXEC cmake --install "$OBJ/ritobin"
+
+	cp "$OBJ/ritobin/ritobin_lib/libritobin_lib.a" "$DEP/lib/libritobin_lib.a"
+
+	RITOBIN_HEADERS="
+		ritobin/bin_hash.hpp
+		ritobin/bin_io.hpp
+		ritobin/bin_morph.hpp
+		ritobin/bin_numconv.hpp
+		ritobin/bin_strconv.hpp
+		ritobin/bin_types.hpp
+		ritobin/bin_types_helper.hpp
+		ritobin/bin_unhash.hpp
+	"
+
+	for __hdr in $RITOBIN_HEADERS; do
+		EXEC mkdir -p "$(dirname $DEP/include/$__hdr)"
+		EXEC cp "$LIB/ritobin/ritobin_lib/src/$__hdr" "$DEP/include/$__hdr"
+	done
+
 	EXEC touch "$DEP/built-deps.flag"
 fi
