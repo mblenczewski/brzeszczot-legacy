@@ -1,0 +1,18 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+
+[*.{c,cpp,h,hpp}]
+indent_style = tab
+indent_size = 8
+
+[*.{json,conf}]
+indent_style = space
+indent_size = 2
+
+[*.{sh}]
+indent_style = tab
+indent_size = 8

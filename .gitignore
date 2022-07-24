@@ -1,0 +1,9 @@
+## artefacts
+bin/
+dep/
+obj/
+
+imgui.ini
+
+## editor files
+**/.*.swp
