@@ -1,0 +1,4 @@
+#ifndef BRZESZCZOT_IO_HPP
+#define BRZESZCZOT_IO_HPP
+
+#endif /* BRZESZCZOT_IO_HPP */

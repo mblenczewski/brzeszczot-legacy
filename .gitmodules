@@ -4,6 +4,3 @@
 [submodule "lib/glfw"]
 	path = lib/glfw
 	url = https://github.com/glfw/glfw.git
-[submodule "lib/ritobin"]
-	path = lib/ritobin
-	url = https://github.com/mblenczewski/ritobin.git
