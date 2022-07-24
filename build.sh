@@ -16,4 +16,4 @@ for __src in $SOURCES; do
 done
 
 OBJECTS="$(find $OBJ/$TARGET -name '*.o' -type f)"
-EXEC c++ -o "$BIN/$TARGET" $OBJECTS $CFLAGS $CPPFLAGS $LDFLAGS
+EXEC c++ -o "$BIN/$TARGET_EXECUTABLE" $OBJECTS $CFLAGS $CPPFLAGS $LDFLAGS

@@ -2,7 +2,8 @@
 
 set -e
 
-TARGET="brzeszczot.exe"
+TARGET="brzeszczot"
+TARGET_EXECUTABLE="$TARGET.exe"
 
 ROOT="$(dirname $0)"
 
@@ -20,7 +21,7 @@ LIB="$ROOT/lib"
 
 CFLAGS="-std=c++14 -Wall -Wextra -Wpedantic -ggdb -O2"
 CPPFLAGS="-I$INC -I$DEP/include"
-LDFLAGS="-L$DEP/lib -lglfw3 -limgui -lopengl32 -lgdi32 -lshell32 -Wl,-O2 -Wl,--as-needed"
+LDFLAGS="-static -L$DEP/lib -lglfw3 -limgui -lopengl32 -lgdi32 -lshell32 -Wl,-O2 -Wl,--as-needed"
 
 EXEC() {
 	[ $DRYRUN ] && echo "$@" || ( [ $VERBOSE ] && echo "$@"; $@ )

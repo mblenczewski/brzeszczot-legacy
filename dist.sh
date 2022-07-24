@@ -4,4 +4,4 @@
 
 "$ROOT/build.sh"
 
-EXEC strip "$BIN/$TARGET"
+EXEC strip "$BIN/$TARGET_EXECUTABLE"

@@ -3,4 +3,4 @@
 . "$(dirname $0)/common.sh"
 
 EXEC rm -rf "$OBJ/$TARGET"
-EXEC rm -f "$BIN/$TARGET"
+EXEC rm -f "$BIN/$TARGET_EXECUTABLE"
