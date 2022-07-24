@@ -1,10 +1,13 @@
 #ifndef BRZESZCZOT_H
 #define BRZESZCZOT_H
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+
+#define TARGET_NAME "brzeszczot"
 
 typedef uint32_t b32;
 
@@ -20,10 +23,5 @@ typedef int64_t s64;
 
 typedef float f32;
 typedef double f64;
-
-struct str_t {
-	char *ptr;
-	size_t len;
-};
 
 #endif /* BRZESZCZOT_H */
