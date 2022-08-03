@@ -1,5 +1,7 @@
 #include "brzeszczot.hpp"
 
+#include "libriot.h"
+
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
@@ -12,12 +14,18 @@ static void glfw_error_callback(int error, const char* description) {
 static void usage(int argc, char **argv) {
 	(void)argc;
 
-	errlog("Usage: %s <path-to-model-source>", argv[0]);
+	errlog("Usage: %s <path-to-model-source>\n", argv[0]);
 }
 
 int main(int argc, char **argv) {
 	if (argc < 2) {
 		usage(argc, argv);
+		return 1;
+	}
+
+	struct riot_bin bin;
+	if (!brzeszczot::try_read_file(argv[1], &bin)) {
+		errlog("Failed to parse file: '%s'\n", argv[1]);
 		return 1;
 	}
 
