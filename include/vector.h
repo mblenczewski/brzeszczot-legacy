@@ -1,6 +1,10 @@
 #ifndef VECTOR_H
 #define VECTOR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include "debug.h"
 #include "types.h"
 
@@ -18,28 +22,37 @@ typedef struct {								\
 	size_t cap, len;							\
 } name;										\
 										\
-visibility b32 name##_try_alloc(name *out, size_t capacity);			\
-visibility b32 name##_try_realloc(name *self, size_t capacity);			\
-visibility void name##_free(name *self);					\
-visibility b32 name##_try_push(name *self, type *val);				\
-visibility b32 name##_try_pop(name *self, type *out);
+visibility b32									\
+name##_try_alloc(name *out, size_t capacity);					\
+visibility b32									\
+name##_try_realloc(name *self, size_t capacity);				\
+visibility void									\
+name##_free(name *self);							\
+										\
+visibility b32									\
+name##_try_push(name *self, type *val);						\
+visibility b32									\
+name##_try_pop(name *self, type *out);
 
 #define VECTOR_IMPL(visibility, type, name)					\
-visibility b32 name##_try_alloc(name *self, size_t capacity) {			\
-	assert(self);								\
+visibility b32									\
+name##_try_alloc(name *out, size_t capacity) {					\
+	assert(out);								\
 										\
 	if ((UINT_MAX / sizeof(type)) < capacity) return false;			\
 										\
 	type *buf = malloc(capacity * sizeof(type));				\
 	if (!buf) return false;							\
 										\
-	self->vs = buf;								\
-	self->cap = self->len = 0;						\
+	out->vs = buf;								\
+	out->cap = capacity;							\
+	out->len = 0;								\
 										\
 	return true;								\
 }										\
 										\
-visibility b32 name##_try_realloc(name *self, size_t capacity) {		\
+visibility b32									\
+name##_try_realloc(name *self, size_t capacity) {				\
 	assert(self);								\
 										\
 	if ((UINT_MAX / sizeof(type)) < capacity) return false;			\
@@ -53,13 +66,15 @@ visibility b32 name##_try_realloc(name *self, size_t capacity) {		\
 	return true;								\
 }										\
 										\
-visibility void name##_free(name *self) {					\
+visibility void									\
+name##_free(name *self) {							\
 	assert(self);								\
 										\
 	free(self->vs);								\
 }										\
 										\
-visibility b32 name##_try_push(name *self, type *val) {				\
+visibility b32									\
+name##_try_push(name *self, type *val) {					\
 	assert(self);								\
 	assert(val);								\
 										\
@@ -74,7 +89,8 @@ visibility b32 name##_try_push(name *self, type *val) {				\
 	return true;								\
 }										\
 										\
-visibility b32 name##_try_pop(name *self, type *out) {				\
+visibility b32									\
+name##_try_pop(name *self, type *out) {						\
 	assert(self);								\
 	assert(out);								\
 										\
@@ -84,5 +100,9 @@ visibility b32 name##_try_pop(name *self, type *out) {				\
 										\
 	return true;								\
 }
+
+#ifdef __cplusplus
+};
+#endif /* __cplusplus */
 
 #endif /* VECTOR_H */

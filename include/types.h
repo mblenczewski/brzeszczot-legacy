@@ -1,6 +1,10 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -21,6 +25,15 @@ typedef int64_t s64;
 typedef float f32;
 typedef double f64;
 
+struct mem_t {
+	u8 *ptr;
+	size_t len;
+};
+
+#define MEM_FROM_SLICE(mem, off) { .ptr = (mem).ptr + (off), .len = (mem)
+#define MEM_FROM_PTR(_ptr, _len) { .ptr = (_ptr), .len = (_len), }
+#define MEM_FROM_ARR(_arr) MEM_FROM_PTR(_arr, sizeof(_arr) / sizeof(_arr[0]))
+
 struct str_t {
 	char *str;
 	size_t len;
@@ -28,5 +41,10 @@ struct str_t {
 
 #define STR_FROM_CSTR(cstr) { .str = (cstr), .len = strlen(cstr), }
 #define STR_FROM_CSTR_LIT(cstr) { .str = (cstr), .len = sizeof(cstr) - sizeof('\0'), }
+#define CSTR_LIT_SIZE(cstr) (sizeof(cstr) - sizeof('\0'))
+
+#ifdef __cplusplus
+};
+#endif /* __cplusplus */
 
 #endif /* TYPES_H */
