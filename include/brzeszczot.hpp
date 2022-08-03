@@ -7,6 +7,8 @@
 #include "types.h"
 #include "vector.h"
 
+#include "libriot.h"
+
 #define TARGET_NAME "brzeszczot"
 
 #include "brzeszczot/io.hpp"
