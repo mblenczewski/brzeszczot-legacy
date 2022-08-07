@@ -7,49 +7,52 @@ extern "C" {
 
 #include "libriot.h"
 
-enum riot_bin_reader_error {
-	RIOT_BIN_READER_ERROR_REMAINING_INPUT = -3,
-	RIOT_BIN_READER_ERROR_TRUNCATED_INPUT = -2,
-	RIOT_BIN_READER_ERROR_BAD_MAGIC = -1,
-	RIOT_BIN_READER_ERROR_OK = 0,
-	RIOT_BIN_READER_ERROR_MALLOC = 1,
+struct stream_t {
+	struct mem_t buf;
+	size_t cur;
 };
 
-enum riot_bin_writer_error {
-	RIOT_BIN_WRITER_ERROR_OK,
+enum riot_io_error {
+	RIOT_IO_ERROR_OK,
+	RIOT_IO_ERROR_EOF,
+	RIOT_IO_ERROR_ALLOC,
+	RIOT_IO_ERROR_CORRUPT,
 };
 
-enum riot_json_reader_error {
-	RIOT_JSON_READER_ERROR_OK,
-};
+static inline enum riot_io_error
+riot_bin_stream_try_skip(struct stream_t *stream, size_t len) {
+	assert(stream);
 
-enum riot_json_writer_error {
-	RIOT_JSON_WRITER_ERROR_OK,
-};
+	if (stream->buf.len - stream->cur < len) return RIOT_IO_ERROR_EOF;
 
-static inline b32
-riot_bin_read_stream(struct mem_t stream, size_t *cur, void *buf, size_t len) {
-	assert(stream.ptr);
-	assert(cur);
-	assert(buf);
+	stream->cur += len;
 
-	if (stream.len - *cur < len) return false;
-
-	memcpy(buf, stream.ptr + *cur, len);
-
-	*cur += len;
-
-	return true;
+	return RIOT_IO_ERROR_OK;
 }
 
-enum riot_bin_reader_error
+static inline enum riot_io_error
+riot_bin_stream_try_read(struct stream_t *stream, void *buf, size_t len) {
+	assert(stream);
+	assert(buf);
+
+	if (stream->buf.len - stream->cur < len) return RIOT_IO_ERROR_EOF;
+
+	memcpy(buf, stream->buf.ptr + stream->cur, len);
+	stream->cur += len;
+
+	return RIOT_IO_ERROR_OK;
+}
+
+enum riot_io_error
 riot_bin_try_read(struct mem_t buf, struct riot_bin *out);
-enum riot_bin_writer_error
+
+enum riot_io_error
 riot_bin_try_write(struct riot_bin const *src, struct mem_t *out);
 
-enum riot_json_reader_error
+enum riot_io_error
 riot_json_try_read(struct str_t buf, struct riot_bin *out);
-enum riot_json_writer_error
+
+enum riot_io_error
 riot_json_try_write(struct riot_bin const *src, struct str_t *out);
 
 #ifdef __cplusplus
