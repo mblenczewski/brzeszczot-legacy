@@ -47,7 +47,7 @@ try_read_file_bin(char const *filepath, struct riot_bin *out) {
 		.len = len,
 	};
 
-	bool result = riot_bin_try_read(src, out) == RIOT_BIN_READER_ERROR_OK;
+	bool result = riot_bin_try_read(src, out) == RIOT_IO_ERROR_OK;
 
 	free(buf);
 
@@ -77,7 +77,7 @@ try_read_file_json(char const *filepath, struct riot_bin *out) {
 		.len = len,
 	};
 
-	bool result = riot_json_try_read(src, out) == RIOT_JSON_READER_ERROR_OK;
+	bool result = riot_json_try_read(src, out) == RIOT_IO_ERROR_OK;
 
 	free(str);
 
@@ -91,7 +91,7 @@ bool brzeszczot::try_read_file(char const *filepath, struct riot_bin *out) {
 	if (strcmp(extension, ".bin") == 0) {
 		dbglog("Attempting to parse file '%s' in binary mode\n", filepath);
 		return try_read_file_bin(filepath, out);
-	} else if (strcmp(extension, ".json")) {
+	} else if (strcmp(extension, ".json") == 0) {
 		dbglog("Attempting to parse file '%s' in json mode\n", filepath);
 		return try_read_file_json(filepath, out);
 	} else {
