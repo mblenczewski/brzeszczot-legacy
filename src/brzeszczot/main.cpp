@@ -14,20 +14,57 @@ static void glfw_error_callback(int error, const char* description) {
 static void usage(int argc, char **argv) {
 	(void)argc;
 
-	errlog("Usage: %s <path-to-model-source>\n", argv[0]);
+	errlog("Usage: %s <path-to-model-source>i <new-path-to-model-source>\n", argv[0]);
 }
 
+typedef bool (*io_handler_fn)(char const *filepath, struct riot_bin *val);
+
 int main(int argc, char **argv) {
-	if (argc < 2) {
+	if (argc < 3) {
 		usage(argc, argv);
 		return 1;
 	}
 
-	struct riot_bin bin;
-	if (!brzeszczot::try_read_file(argv[1], &bin)) {
+	io_handler_fn read_handler, write_handler;
+
+	char const *extension = strrchr(argv[1], '.');
+	if (strcmp(extension, ".bin") == 0) {
+		errlog("INIBIN format assumed: '%s'\n", argv[1]);
+		read_handler = brzeszczot::try_read_bin_file;
+		write_handler = brzeszczot::try_write_bin_file;
+	} else if (strcmp(extension, ".json") == 0) {
+		errlog("JSON format assumed: '%s'\n", argv[1]);
+		read_handler = brzeszczot::try_read_json_file;
+		write_handler = brzeszczot::try_write_json_file;
+	} else {
+		// TODO: use magic value to pick the correct reader to read
+		// the inibin file
+
+		errlog("Failed to recognise the extension: '%s', and magic number not recognised\n", extension);
+		return 1;
+	}
+
+	struct riot_bin bin = {};
+	if (!map_str_to_riot_bin_node_try_alloc(&bin.sections, 8)) {
+		errlog("Failed to allocate riot bin hashmap\n");
+		return 1;
+	}
+
+	if (!read_handler(argv[1], &bin)) {
 		errlog("Failed to parse file: '%s'\n", argv[1]);
 		return 1;
 	}
+
+	errlog("Successfully parsed input file: '%s'\n", argv[1]);
+
+	if (!write_handler(argv[2], &bin)) {
+		errlog("Failed to write file: '%s'\n", argv[2]);
+		return 1;
+	}
+
+	errlog("Successfully wrote input file: '%s'\n", argv[2]);
+
+	return 0;
 
 	glfwSetErrorCallback(glfw_error_callback);
 	if (!glfwInit())
