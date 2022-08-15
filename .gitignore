@@ -6,4 +6,5 @@ obj/
 imgui.ini
 
 ## editor files
+.vscode
 **/.*.swp

@@ -22,7 +22,7 @@ LIB="$ROOT/lib"
 [ -d "$DEP" ] || mkdir "$DEP"
 [ -d "$OBJ" ] || mkdir "$OBJ"
 
-COMMON_FLAGS="-Wall -Wextra -Wpedantic -ggdb -O2"
+COMMON_FLAGS="-Wall -Wextra -Wpedantic -ggdb -O0"
 CFLAGS="-std=c17 $COMMON_FLAGS"
 CXXFLAGS="-std=c++20 $COMMON_FLAGS"
 CPPFLAGS="-I$INC -I$DEP/include -I$DEP/include/ritobin"
