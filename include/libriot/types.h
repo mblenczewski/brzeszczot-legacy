@@ -29,6 +29,8 @@ struct rgba {
 
 enum __attribute__((packed)) riot_bin_node_type {
 	RIOT_BIN_NODE_TYPE_NONE	= 0,
+
+	/* arithmetic and primitive types */
 	RIOT_BIN_NODE_TYPE_B8	= 1,
 	RIOT_BIN_NODE_TYPE_I8	= 2,
 	RIOT_BIN_NODE_TYPE_U8	= 3,
@@ -47,6 +49,8 @@ enum __attribute__((packed)) riot_bin_node_type {
 	RIOT_BIN_NODE_TYPE_STR	= 16,
 	RIOT_BIN_NODE_TYPE_HASH	= 17,
 	RIOT_BIN_NODE_TYPE_FILE	= 18,
+
+	/* complex types */
 	RIOT_BIN_NODE_TYPE_LIST	= 0x80 | 0,
 	RIOT_BIN_NODE_TYPE_LIST2 = 0x80 | 1,
 	RIOT_BIN_NODE_TYPE_PTR	= 0x80 | 2,
@@ -122,6 +126,44 @@ struct riot_bin_pair {
 	struct riot_bin_node key, val;
 };
 
+static inline void
+riot_bin_node_free(struct riot_bin_node *self) {
+	assert(self);
+
+	switch (self->type) {
+		/* complex types must have custom deallocation logic, until a
+		 * simple bump allocator can be used to allocate and deallocate
+		 * all memory in a single block
+		 */
+		case RIOT_BIN_NODE_TYPE_LIST:
+		case RIOT_BIN_NODE_TYPE_LIST2: {
+			// TODO
+		} break;
+
+		case RIOT_BIN_NODE_TYPE_PTR: {
+			// TODO
+		} break;
+
+		case RIOT_BIN_NODE_TYPE_EMBED: {
+			// TODO
+		} break;
+
+		case RIOT_BIN_NODE_TYPE_OPTION: {
+			// TODO
+		} break;
+
+		case RIOT_BIN_NODE_TYPE_MAP: {
+			// TODO
+		} break;
+
+		default: {
+			/* arithmetic and primitive types do not need to be
+			 * freed, as they are held inline with the node struct
+			 */
+		} break;
+	}
+}
+
 HASHMAP_DECL(global, struct str_t, struct riot_bin_node, map_str_to_riot_bin_node)
 
 struct riot_bin {
@@ -130,6 +172,12 @@ struct riot_bin {
 
 static inline enum riot_bin_node_type
 riot_bin_raw_type_to_node_type(u8 raw) {
+	/* handling legacy complex types */
+	if (raw >= RIOT_BIN_NODE_TYPE_FILE && raw < 0x80) {
+		raw -= RIOT_BIN_NODE_TYPE_FILE; /* remove primitive offset */
+		raw |= 0x80; /* mark as complex type */
+	}
+
 	switch (raw) {
 		case RIOT_BIN_NODE_TYPE_NONE:	return RIOT_BIN_NODE_TYPE_NONE;
 		case RIOT_BIN_NODE_TYPE_B8:	return RIOT_BIN_NODE_TYPE_B8;
@@ -151,7 +199,7 @@ riot_bin_raw_type_to_node_type(u8 raw) {
 		case RIOT_BIN_NODE_TYPE_HASH:	return RIOT_BIN_NODE_TYPE_HASH;
 		case RIOT_BIN_NODE_TYPE_FILE:	return RIOT_BIN_NODE_TYPE_FILE;
 		case RIOT_BIN_NODE_TYPE_LIST:	return RIOT_BIN_NODE_TYPE_LIST;
-		case RIOT_BIN_NODE_TYPE_LIST2:	return RIOT_BIN_NODE_TYPE_LIST2;
+		case RIOT_BIN_NODE_TYPE_LIST2:	return RIOT_BIN_NODE_TYPE_LIST;
 		case RIOT_BIN_NODE_TYPE_PTR:	return RIOT_BIN_NODE_TYPE_PTR;
 		case RIOT_BIN_NODE_TYPE_EMBED:	return RIOT_BIN_NODE_TYPE_EMBED;
 		case RIOT_BIN_NODE_TYPE_LINK:	return RIOT_BIN_NODE_TYPE_LINK;
@@ -164,6 +212,11 @@ riot_bin_raw_type_to_node_type(u8 raw) {
 
 static inline u8
 riot_bin_node_type_to_raw_type(enum riot_bin_node_type type) {
+	/* normalise the 2 list types into one
+	 */
+	if (type == RIOT_BIN_NODE_TYPE_LIST2)
+		type = RIOT_BIN_NODE_TYPE_LIST;
+
 	return (u8)type;
 }
 
@@ -199,6 +252,11 @@ riot_bin_node_type_to_size(enum riot_bin_node_type type) {
 		case RIOT_BIN_NODE_TYPE_FLAG:	return sizeof(u8);
 		default:			return 0;
 	}
+}
+
+static inline b32
+riot_bin_node_type_is_container(enum riot_bin_node_type type) {
+	return type == RIOT_BIN_NODE_TYPE_LIST || type == RIOT_BIN_NODE_TYPE_OPTION || type == RIOT_BIN_NODE_TYPE_MAP;
 }
 
 #ifdef __cplusplus
