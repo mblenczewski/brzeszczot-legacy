@@ -10,6 +10,10 @@ extern "C" {
 #include <stdint.h>
 #include <string.h>
 
+#define ARRLEN(arr) (sizeof(arr) / sizeof((arr)[0]))
+#define MAX(a, b) ((a) < (b) ? (b) : (a))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 typedef int32_t b32;
 
 typedef uint8_t u8;
@@ -40,8 +44,6 @@ struct str_t {
 };
 
 #define STR_FROM_CSTR(cstr) { .str = (cstr), .len = strlen(cstr), }
-#define STR_FROM_CSTR_LIT(cstr) { .str = (cstr), .len = sizeof(cstr) - sizeof('\0'), }
-#define CSTR_LIT_SIZE(cstr) (sizeof(cstr) - sizeof('\0'))
 
 #ifdef __cplusplus
 };
