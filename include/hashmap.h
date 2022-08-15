@@ -62,7 +62,7 @@ name##_try_alloc(name *out, size_t capacity) {					\
 										\
 	if (UINT_MAX / sizeof(name##_cell) < capacity) return false;		\
 										\
-	name##_cell *buf = malloc(capacity * sizeof(name##_cell));		\
+	name##_cell *buf = calloc(capacity, sizeof(name##_cell));		\
 	if (!buf) return false;							\
 										\
 	out->cells = buf;							\
