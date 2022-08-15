@@ -2,6 +2,9 @@
 
 static size_t
 read_bin_file(char const *filepath, u8 **out) {
+	assert(filepath);
+	assert(out);
+
 	FILE *f = fopen(filepath, "rb");
 	if (!f) return 0;
 
@@ -30,8 +33,26 @@ failure:
 	return 0;
 }
 
-static bool
-try_read_file_bin(char const *filepath, struct riot_bin *out) {
+static size_t
+write_bin_file(char const *filepath, u8 *buf, size_t len) {
+	assert(filepath);
+	assert(buf);
+
+	FILE *f = fopen(filepath, "wb");
+	if (!f) return 0;
+
+	size_t total_written = 0, curr_written = 0;
+	do {
+		total_written += (curr_written = fwrite(buf + total_written, sizeof(u8), len - total_written, f));
+	} while (curr_written && total_written < len);
+
+	fclose(f);
+
+	return total_written;
+}
+
+bool
+brzeszczot::try_read_bin_file(char const *filepath, struct riot_bin *out) {
 	assert(filepath);
 	assert(out);
 
@@ -47,15 +68,17 @@ try_read_file_bin(char const *filepath, struct riot_bin *out) {
 		.len = len,
 	};
 
-	bool result = riot_bin_try_read(src, out) == RIOT_IO_ERROR_OK;
+	enum riot_io_error result = riot_bin_try_read(src, out);
+	if (result)
+		errlog("Failed to parse bin file due to '%s'\n", RIOT_IO_ERROR_NAME_MAP[result]);
 
 	free(buf);
 
-	return result;
+	return result == RIOT_IO_ERROR_OK;
 }
 
-static bool
-try_read_file_json(char const *filepath, struct riot_bin *out) {
+bool
+brzeszczot::try_read_json_file(char const *filepath, struct riot_bin *out) {
 	assert(filepath);
 	assert(out);
 
@@ -77,29 +100,27 @@ try_read_file_json(char const *filepath, struct riot_bin *out) {
 		.len = len,
 	};
 
-	bool result = riot_json_try_read(src, out) == RIOT_IO_ERROR_OK;
+	enum riot_io_error result = riot_json_try_read(src, out);
+	if (result)
+		errlog("Failed to parse json file due to '%s'\n", RIOT_IO_ERROR_NAME_MAP[result]);
 
 	free(str);
 
-	return result;
+	return result == RIOT_IO_ERROR_OK;
 }
 
-bool brzeszczot::try_read_file(char const *filepath, struct riot_bin *out) {
+bool
+brzeszczot::try_write_bin_file(char const *filepath, struct riot_bin *out) {
+	assert(filepath);
 	assert(out);
 
-	char const *extension = strrchr(filepath, '.');
-	if (strcmp(extension, ".bin") == 0) {
-		dbglog("Attempting to parse file '%s' in binary mode\n", filepath);
-		return try_read_file_bin(filepath, out);
-	} else if (strcmp(extension, ".json") == 0) {
-		dbglog("Attempting to parse file '%s' in json mode\n", filepath);
-		return try_read_file_json(filepath, out);
-	} else {
-		// TODO: use magic value to pick the correct reader to read
-		// the inibin file
+	return false;
+}
 
-		errlog("Failed to recognise the extension: '%s', and magic number not recognised\n", extension);
-	}
+bool
+brzeszczot::try_write_json_file(char const *filepath, struct riot_bin *out) {
+	assert(filepath);
+	assert(out);
 
 	return false;
 }
