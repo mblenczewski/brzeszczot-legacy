@@ -25,7 +25,7 @@ LIB="$ROOT/lib"
 COMMON_FLAGS="-Wall -Wextra -Wpedantic -ggdb -O0"
 CFLAGS="-std=c17 $COMMON_FLAGS"
 CXXFLAGS="-std=c++20 $COMMON_FLAGS"
-CPPFLAGS="-I$INC -I$DEP/include -I$DEP/include/ritobin"
+CPPFLAGS="-I$INC -I$DEP/include"
 LDFLAGS="-static -L$BIN -lriot -L$DEP/lib -lglfw3 -limgui -lopengl32 -lgdi32 -lshell32 -Wl,-O2 -Wl,--as-needed"
 
 EXEC() {
