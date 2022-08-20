@@ -17,7 +17,15 @@ static void usage(int argc, char **argv) {
 	errlog("Usage: %s <path-to-model-source>i <new-path-to-model-source>\n", argv[0]);
 }
 
-typedef bool (*io_handler_fn)(char const *filepath, struct riot_bin *val);
+static inline bool
+test_magic(char const *filepath, char const *magic) {
+	assert(filepath);
+	assert(magic);
+
+	// TODO: test file at filepath to see if first few bytes match magic
+
+	return false;
+}
 
 int main(int argc, char **argv) {
 	if (argc < 3) {
@@ -25,21 +33,8 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	io_handler_fn read_handler, write_handler;
-
 	char const *extension = strrchr(argv[1], '.');
-	if (strcmp(extension, ".bin") == 0) {
-		errlog("INIBIN format assumed: '%s'\n", argv[1]);
-		read_handler = brzeszczot::try_read_bin_file;
-		write_handler = brzeszczot::try_write_bin_file;
-	} else if (strcmp(extension, ".json") == 0) {
-		errlog("JSON format assumed: '%s'\n", argv[1]);
-		read_handler = brzeszczot::try_read_json_file;
-		write_handler = brzeszczot::try_write_json_file;
-	} else {
-		// TODO: use magic value to pick the correct reader to read
-		// the inibin file
-
+	if (strcmp(extension, ".bin") != 0 && !test_magic(argv[1], "PROP")) {
 		errlog("Failed to recognise the extension: '%s', and magic number not recognised\n", extension);
 		return 1;
 	}
@@ -50,14 +45,14 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	if (!read_handler(argv[1], &bin)) {
+	if (!brzeszczot::try_read_bin_file(argv[1], &bin)) {
 		errlog("Failed to parse file: '%s'\n", argv[1]);
 		return 1;
 	}
 
 	errlog("Successfully parsed input file: '%s'\n", argv[1]);
 
-	if (!write_handler(argv[2], &bin)) {
+	if (!brzeszczot::try_write_bin_file(argv[2], &bin)) {
 		errlog("Failed to write file: '%s'\n", argv[2]);
 		return 1;
 	}

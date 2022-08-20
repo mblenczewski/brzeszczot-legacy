@@ -78,47 +78,7 @@ brzeszczot::try_read_bin_file(char const *filepath, struct riot_bin *out) {
 }
 
 bool
-brzeszczot::try_read_json_file(char const *filepath, struct riot_bin *out) {
-	assert(filepath);
-	assert(out);
-
-	assert(sizeof(char) == sizeof(u8));
-
-	u8 *buf;
-	size_t len;
-	if (!(len = read_bin_file(filepath, &buf))) {
-		errlog("Failed to read in file '%s' in json mode\n", filepath);
-		return false;
-	}
-
-	char *str = (char*)realloc(buf, (len + 1) * sizeof(char));
-	if (!str) { free(buf); return false; }
-	str[len] = '\0';
-
-	struct str_t src = {
-		.str = str,
-		.len = len,
-	};
-
-	enum riot_io_error result = riot_json_try_read(src, out);
-	if (result)
-		errlog("Failed to parse json file due to '%s'\n", RIOT_IO_ERROR_NAME_MAP[result]);
-
-	free(str);
-
-	return result == RIOT_IO_ERROR_OK;
-}
-
-bool
 brzeszczot::try_write_bin_file(char const *filepath, struct riot_bin *out) {
-	assert(filepath);
-	assert(out);
-
-	return false;
-}
-
-bool
-brzeszczot::try_write_json_file(char const *filepath, struct riot_bin *out) {
 	assert(filepath);
 	assert(out);
 
