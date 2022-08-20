@@ -14,6 +14,8 @@ extern "C" {
 #define MAX(a, b) ((a) < (b) ? (b) : (a))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
+#define BITS_SET(v, m) (((v) & (m)) == (m))
+
 typedef int32_t b32;
 
 typedef uint8_t u8;
