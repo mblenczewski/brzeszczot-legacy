@@ -16,6 +16,7 @@ extern "C" {
 #include "vector.h"
 
 #include "libriot/types.h"
+#include "libriot/type_helpers.h"
 #include "libriot/io.h"
 
 #ifdef __cplusplus

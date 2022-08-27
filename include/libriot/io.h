@@ -20,13 +20,21 @@ enum riot_io_error {
 	_RIOT_IO_ERROR_COUNT,
 };
 
-extern char const *RIOT_IO_ERROR_NAME_MAP[_RIOT_IO_ERROR_COUNT];
+extern char const *_RIOT_IO_ERROR_NAME_MAP[_RIOT_IO_ERROR_COUNT];
+
+static inline char const *
+riot_io_error_str(enum riot_io_error val) {
+	assert(val);
+	assert(val < _RIOT_IO_ERROR_COUNT);
+
+	return _RIOT_IO_ERROR_NAME_MAP[val];
+}
 
 #define STREAM_ERRLOG(stream) errlog("%s@%zu/%zu: ", __func__, (stream).cur, (stream).buf.len);
 
 static inline b32
 riot_bin_stream_has_input(struct stream_t *stream) {
-	return stream->cur == stream->buf.len;
+	return stream->cur < stream->buf.len;
 }
 
 static inline enum riot_io_error
@@ -177,6 +185,9 @@ riot_bin_stream_try_write(struct stream_t *stream, void *buf, size_t len) {
  *   | | Val : riot_bin_node<Val Type>					|	|
  *   | ------------------------------------------------------------------------	|
  */
+
+enum riot_io_error
+riot_bin_try_size(struct mem_t buf, struct riot_bin_alloc_info *out);
 
 enum riot_io_error
 riot_bin_try_read(struct mem_t buf, struct riot_bin *out);
