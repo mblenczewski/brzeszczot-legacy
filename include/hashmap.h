@@ -77,7 +77,7 @@ visibility b32									\
 name##_try_realloc(name *self, size_t capacity) {				\
 	assert(self);								\
 										\
-	if (UINT_MAX / sizeof(name##_cell) < capacity || self->len < capacity)	\
+	if (UINT_MAX / sizeof(name##_cell) < capacity || capacity < self->len)	\
 		return false;							\
 										\
 	name tmp;								\
