@@ -138,44 +138,6 @@ struct riot_bin_pair {
 	struct riot_bin_node key, val;
 };
 
-static inline void
-riot_bin_node_free(struct riot_bin_node *self) {
-	assert(self);
-
-	switch (self->type) {
-		/* complex types must have custom deallocation logic, until a
-		 * simple bump allocator can be used to allocate and deallocate
-		 * all memory in a single block
-		 */
-		case RIOT_BIN_NODE_TYPE_LIST:
-		case RIOT_BIN_NODE_TYPE_LIST2: {
-			// TODO
-		} break;
-
-		case RIOT_BIN_NODE_TYPE_PTR: {
-			// TODO
-		} break;
-
-		case RIOT_BIN_NODE_TYPE_EMBED: {
-			// TODO
-		} break;
-
-		case RIOT_BIN_NODE_TYPE_OPTION: {
-			// TODO
-		} break;
-
-		case RIOT_BIN_NODE_TYPE_MAP: {
-			// TODO
-		} break;
-
-		default: {
-			/* arithmetic and primitive types do not need to be
-			 * freed, as they are held inline with the node struct
-			 */
-		} break;
-	}
-}
-
 struct riot_bin_alloc_info {
 	size_t nodes_count, fields_count, pairs_count;
 };
