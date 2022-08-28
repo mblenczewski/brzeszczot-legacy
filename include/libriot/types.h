@@ -139,10 +139,11 @@ struct riot_bin_pair {
 };
 
 struct riot_bin_alloc_info {
-	size_t nodes_count, fields_count, pairs_count;
+	size_t strings_len, nodes_count, fields_count, pairs_count;
 };
 
 struct riot_bin_mem_pool {
+	char *strings, *strings_head;
 	struct riot_bin_node *nodes, *nodes_head;
 	struct riot_bin_field *fields, *fields_head;
 	struct riot_bin_pair *pairs, *pairs_head;
@@ -161,6 +162,7 @@ riot_bin_free(struct riot_bin *self) {
 	assert(self);
 
 	map_str_to_riot_bin_node_free(&self->sections);
+	free(self->mem_pool.strings);
 	free(self->mem_pool.nodes);
 	free(self->mem_pool.fields);
 	free(self->mem_pool.pairs);

@@ -1,15 +1,5 @@
 #include "libriot/io.h"
 
-#define READER_ASSERT(cond, errno, cleanup, ...)				\
-if (!(cond)) {									\
-	STREAM_ERRLOG(*stream);							\
-	errlog("%s: ", riot_io_error_str(errno));				\
-	errlog(__VA_ARGS__);							\
-	errlog("\n");								\
-	err = errno;								\
-	goto cleanup;								\
-}
-
 static enum riot_io_error
 riot_bin_stream_try_size_node(struct stream_t *stream, enum riot_bin_node_type type, struct riot_bin_alloc_info *alloc_info);
 
@@ -40,14 +30,10 @@ riot_bin_try_size(struct mem_t buf, struct riot_bin_alloc_info *out) {
 	u8 magic[4] = {0};
 	b32 has_patches = false;
 
-	struct riot_bin_alloc_info alloc_info = {
-		.nodes_count = 0,
-		.fields_count = 0,
-		.pairs_count = 0,
-	};
+	struct riot_bin_alloc_info alloc_info = {0};
 
 	err = riot_bin_stream_try_read(stream, magic, patch_magic.len);
-	READER_ASSERT(!err, err, failure, "Failed to read magic value!")
+	BIN_ASSERT(!err, err, failure, "Failed to read magic value!")
 
 	/* if we read the patch magic, then we need to skip ahead 8 bytes to
 	 * skip past the unknown 8 bytes remaining in the patch header and
@@ -57,37 +43,37 @@ riot_bin_try_size(struct mem_t buf, struct riot_bin_alloc_info *out) {
 		has_patches = true;
 
 		err = riot_bin_stream_try_skip(stream, 8);
-		READER_ASSERT(!err, err, failure, "Failed to skip past patch header!")
+		BIN_ASSERT(!err, err, failure, "Failed to skip past patch header!")
 
 		err = riot_bin_stream_try_read(stream, magic, prop_magic.len);
-		READER_ASSERT(!err, err, failure, "Failed to read magic value!")
+		BIN_ASSERT(!err, err, failure, "Failed to read magic value!")
 	}
 
 	/* if we don't successfully read the patch magic identifier or
 	 * the prop magic identifier then we have a corrupted bin file
 	 */
 	if (memcmp(magic, prop_magic.str, prop_magic.len) != 0) {
-		READER_ASSERT(false, RIOT_IO_ERROR_CORRUPT, failure, "Invalid magic value read!");
+		BIN_ASSERT(false, RIOT_IO_ERROR_CORRUPT, failure, "Invalid magic value read!");
 	}
 
 	u32 version = 0;
 	err = riot_bin_stream_try_read(stream, &version, sizeof(version));
-	READER_ASSERT(!err, err, failure, "Failed to read version identifier!")
+	BIN_ASSERT(!err, err, failure, "Failed to read version identifier!")
 
 	if (version >= 2) {
 		err = riot_bin_try_size_linked_files(stream, &alloc_info);
-		READER_ASSERT(!err, err, failure, "Failed to size linked files!")
+		BIN_ASSERT(!err, err, failure, "Failed to size linked files!")
 	}
 
 	err = riot_bin_try_size_entries(stream, &alloc_info);
-	READER_ASSERT(!err, err, failure, "Failed to size prop entries!")
+	BIN_ASSERT(!err, err, failure, "Failed to size prop entries!")
 
 	if (version >= 3 && has_patches) {
 		err = riot_bin_try_size_patches(stream, &alloc_info);
-		READER_ASSERT(!err, err, failure, "Failed to size patch entries!");
+		BIN_ASSERT(!err, err, failure, "Failed to size patch entries!");
 	}
 
-	READER_ASSERT(!riot_bin_stream_has_input(stream), RIOT_IO_ERROR_CORRUPT, failure, "Stream input remaining!")
+	BIN_ASSERT(!riot_bin_stream_has_input(stream), RIOT_IO_ERROR_CORRUPT, failure, "Stream input remaining!")
 
 	*out = alloc_info;
 
@@ -104,13 +90,13 @@ riot_bin_try_size_linked_files(struct stream_t *stream, struct riot_bin_alloc_in
 
 	u32 count = 0;
 	err = riot_bin_stream_try_read(stream, &count, sizeof(count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of linked files!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of linked files!")
 
 	if (!count) return err;
 
 	for (u32 i = 0; i < count; i++) {
 		err = riot_bin_stream_try_size_node(stream, RIOT_BIN_NODE_TYPE_STR, alloc_info);
-		READER_ASSERT(!err, err, failure, "Failed to size linked files %u!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to size linked files %u!", i)
 	}
 
 failure:
@@ -126,31 +112,31 @@ riot_bin_try_size_entry(struct stream_t *stream, struct riot_bin_alloc_info *all
 
 	u32 size = 0;
 	err = riot_bin_stream_try_read(stream, &size, sizeof(size));
-	READER_ASSERT(!err, err, failure, "Failed to read total size of prop entry embed!")
+	BIN_ASSERT(!err, err, failure, "Failed to read total size of prop entry embed!")
 
 	size_t prev_cur = stream->cur;
 
 	err = riot_bin_stream_try_skip(stream, sizeof(hashes_fnv1a_val_t));
-	READER_ASSERT(!err, err, failure, "Failed to skip prop entry embed name hash!")
+	BIN_ASSERT(!err, err, failure, "Failed to skip prop entry embed name hash!")
 
 	u16 count = 0; 
 	err = riot_bin_stream_try_read(stream, &count, sizeof(count));
-	READER_ASSERT(!err, err, failure, "Failed to read count of prop entry embed fields!")
+	BIN_ASSERT(!err, err, failure, "Failed to read count of prop entry embed fields!")
 
 	for (u16 i = 0; i < count; i++) {
 		err = riot_bin_stream_try_skip(stream, sizeof(hashes_fnv1a_val_t));
-		READER_ASSERT(!err, err, failure, "Failed to skip prop entry embed's field %u name hash!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to skip prop entry embed's field %u name hash!", i)
 
 		u8 raw_type;
 		err = riot_bin_stream_try_read(stream, &raw_type, sizeof(raw_type));
-		READER_ASSERT(!err, err, failure, "Failed to read prop entry embed's field %u type!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read prop entry embed's field %u type!", i)
 
 		enum riot_bin_node_type type = riot_bin_raw_type_to_node_type(raw_type);
 		err = riot_bin_stream_try_size_node(stream, type, alloc_info);
-		READER_ASSERT(!err, err, failure, "Failed to size prop entry embed's field %u value!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to size prop entry embed's field %u value!", i)
 	}
 
-	READER_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
+	BIN_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
 			"Prop entry embed parsing failed (%zu bytes read, %u bytes expected)!", stream->cur - prev_cur, size)
 
 	alloc_info->fields_count += count;
@@ -168,16 +154,16 @@ riot_bin_try_size_entries(struct stream_t *stream, struct riot_bin_alloc_info *a
 
 	u32 count = 0;
 	err = riot_bin_stream_try_read(stream, &count, sizeof(count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of prop entries!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of prop entries!")
 
 	if (!count) return err;
 
 	err = riot_bin_stream_try_skip(stream, count * sizeof(hashes_fnv1a_val_t));
-	READER_ASSERT(!err, err, failure, "Failed to skip over prop entry name hashes!")
+	BIN_ASSERT(!err, err, failure, "Failed to skip over prop entry name hashes!")
 
 	for (u32 i = 0; i < count; i++) {
 		err = riot_bin_try_size_entry(stream, alloc_info);
-		READER_ASSERT(!err, err, failure, "Failed to size embed entry %u!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to size embed entry %u!", i)
 	}
 
 	alloc_info->pairs_count += count;
@@ -194,27 +180,27 @@ riot_bin_try_size_patch(struct stream_t *stream, struct riot_bin_alloc_info *all
 	enum riot_io_error err = RIOT_IO_ERROR_OK;
 
 	err = riot_bin_stream_try_skip(stream, sizeof(hashes_fnv1a_val_t));
-	READER_ASSERT(!err, err, failure, "Failed to skip patch entry embed name hash!")
+	BIN_ASSERT(!err, err, failure, "Failed to skip patch entry embed name hash!")
 
 	u32 size = 0;
 	err = riot_bin_stream_try_read(stream, &size, sizeof(size));
-	READER_ASSERT(!err, err, failure, "Failed to read total size of patch entry embed!")
+	BIN_ASSERT(!err, err, failure, "Failed to read total size of patch entry embed!")
 
 	size_t prev_cur = stream->cur;
 
 	u8 raw_type;
 	err = riot_bin_stream_try_read(stream, &raw_type, sizeof(raw_type));
-	READER_ASSERT(!err, err, failure, "Failed to read raw type of patch entry embed value!");
+	BIN_ASSERT(!err, err, failure, "Failed to read raw type of patch entry embed value!");
 
 	enum riot_bin_node_type type = riot_bin_raw_type_to_node_type(raw_type);
 
 	err = riot_bin_stream_try_size_node(stream, RIOT_BIN_NODE_TYPE_STR, alloc_info);
-	READER_ASSERT(!err, err, failure, "Failed to size patch entry embed path!")
+	BIN_ASSERT(!err, err, failure, "Failed to size patch entry embed path!")
 
 	err = riot_bin_stream_try_size_node(stream, type, alloc_info);
-	READER_ASSERT(!err, err, failure, "Failed to size patch entry embed value!")
+	BIN_ASSERT(!err, err, failure, "Failed to size patch entry embed value!")
 
-	READER_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_ALLOC, failure,
+	BIN_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_ALLOC, failure,
 			"Patch entry embed parsing failed (%zu bytes read, %u bytes expected)!", stream->cur - prev_cur, size)
 
 	alloc_info->fields_count += 2;
@@ -232,13 +218,13 @@ riot_bin_try_size_patches(struct stream_t *stream, struct riot_bin_alloc_info *a
 
 	u32 count = 0;
 	err = riot_bin_stream_try_read(stream, &count, sizeof(count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of patches!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of patches!")
 
 	if (!count) return err;
 
 	for (u32 i = 0; i < count; i++) {
 		err = riot_bin_try_size_patch(stream, alloc_info);
-		READER_ASSERT(!err, err, failure, "Failed to size patch %u!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to size patch %u!", i)
 	}
 
 	alloc_info->pairs_count += count;
@@ -309,25 +295,30 @@ riot_bin_try_read(struct mem_t buf, struct riot_bin *out) {
 	 * through and having to step back and undo all previous allocations
 	 */
 	err = riot_bin_try_size(buf, &bin.mem_pool.alloc_info);
-	READER_ASSERT(!err, err, failure, "Failed to calculate allocation requirements for bin repr!")
+	BIN_ASSERT(!err, err, failure, "Failed to calculate allocation requirements for bin repr!")
 
 	assert(bin.mem_pool.alloc_info.nodes_count);
 	assert(bin.mem_pool.alloc_info.fields_count);
 	assert(bin.mem_pool.alloc_info.pairs_count);
 
+	dbglog("String Arena: %zu\n", bin.mem_pool.alloc_info.strings_len);
 	dbglog("Arena-allocated Nodes: %zu\n", bin.mem_pool.alloc_info.nodes_count);
 	dbglog("Arena-allocated Fields: %zu\n", bin.mem_pool.alloc_info.fields_count);
 	dbglog("Arena-allocated Pairs: %zu\n", bin.mem_pool.alloc_info.pairs_count);
 
+	bin.mem_pool.strings = malloc(bin.mem_pool.alloc_info.strings_len * sizeof(char));
+	BIN_ASSERT(bin.mem_pool.strings, RIOT_IO_ERROR_ALLOC, failure, "Failed to allocate string arena for bin repr!")
+
 	bin.mem_pool.nodes = malloc(bin.mem_pool.alloc_info.nodes_count * sizeof(struct riot_bin_node));
-	READER_ASSERT(bin.mem_pool.nodes, RIOT_IO_ERROR_ALLOC, failure, "Failed to allocate nodes for bin repr!")
+	BIN_ASSERT(bin.mem_pool.nodes, RIOT_IO_ERROR_ALLOC, failure, "Failed to allocate nodes for bin repr!")
 
 	bin.mem_pool.fields = malloc(bin.mem_pool.alloc_info.fields_count * sizeof(struct riot_bin_field));
-	READER_ASSERT(bin.mem_pool.fields, RIOT_IO_ERROR_ALLOC, failure, "Failed to allocate fields for bin repr!")
+	BIN_ASSERT(bin.mem_pool.fields, RIOT_IO_ERROR_ALLOC, failure, "Failed to allocate fields for bin repr!")
 
 	bin.mem_pool.pairs = malloc(bin.mem_pool.alloc_info.pairs_count * sizeof(struct riot_bin_pair));
-	READER_ASSERT(bin.mem_pool.pairs, RIOT_IO_ERROR_ALLOC, failure, "Failed to allocate pairs for bin repr!")
-	
+	BIN_ASSERT(bin.mem_pool.pairs, RIOT_IO_ERROR_ALLOC, failure, "Failed to allocate pairs for bin repr!")
+
+	bin.mem_pool.strings_head = bin.mem_pool.strings;	
 	bin.mem_pool.nodes_head = bin.mem_pool.nodes;
 	bin.mem_pool.fields_head = bin.mem_pool.fields;
 	bin.mem_pool.pairs_head = bin.mem_pool.pairs;
@@ -348,7 +339,7 @@ riot_bin_try_read(struct mem_t buf, struct riot_bin *out) {
 	node.type = RIOT_BIN_NODE_TYPE_STR;
 
 	err = riot_bin_stream_try_read(stream, magic, patch_magic.len);
-	READER_ASSERT(!err, err, failure, "Failed to read magic value!")
+	BIN_ASSERT(!err, err, failure, "Failed to read magic value!")
 
 	if (memcmp(magic, patch_magic.str, patch_magic.len) == 0) {
 		dbglog("Read PTCH magic (have patch header and trailer)\n");
@@ -356,17 +347,17 @@ riot_bin_try_read(struct mem_t buf, struct riot_bin *out) {
 		node.node_str.ptr = patch_magic.str;
 		node.node_str.len = patch_magic.len;
 
-		READER_ASSERT(riot_bin_try_add_section(&bin, &key, &node), RIOT_IO_ERROR_ALLOC, failure, "Failed to add %s section to bin repr!", key.str)
+		BIN_ASSERT(riot_bin_try_add_section(&bin, &key, &node), RIOT_IO_ERROR_ALLOC, failure, "Failed to add %s section to bin repr!", key.str)
 		has_patches = true;
 
 		u64 unknown = 0;
 		err = riot_bin_stream_try_read(stream, &unknown, sizeof(unknown));
-		READER_ASSERT(!err, err, failure, "Failed to read unknown bytes!")
+		BIN_ASSERT(!err, err, failure, "Failed to read unknown bytes!")
 
 		dbglog("Unknown bytes: %llu\n", unknown);
 
 		err = riot_bin_stream_try_read(stream, magic, prop_magic.len);
-		READER_ASSERT(!err, err, failure, "Failed to read magic value!")
+		BIN_ASSERT(!err, err, failure, "Failed to read magic value!")
 	}
 
 	/* if we do not have the PROP magic identifier, our file is corrupt
@@ -376,20 +367,20 @@ riot_bin_try_read(struct mem_t buf, struct riot_bin *out) {
 		/* if we don't successfully read the patch magic identifier or
 		 * the prop magic identifier then we have a corrupted bin file
 		 */
-		READER_ASSERT(false, RIOT_IO_ERROR_CORRUPT, failure, "Invalid magic value read!");
+		BIN_ASSERT(false, RIOT_IO_ERROR_CORRUPT, failure, "Invalid magic value read!");
 	}
 
 	node.node_str.ptr = prop_magic.str;
 	node.node_str.len = prop_magic.len;
 
-	READER_ASSERT(riot_bin_try_add_section(&bin, &key, &node), RIOT_IO_ERROR_ALLOC, failure, "Failed to add %s section to bin repr!", key.str)
+	BIN_ASSERT(riot_bin_try_add_section(&bin, &key, &node), RIOT_IO_ERROR_ALLOC, failure, "Failed to add %s section to bin repr!", key.str)
 
 	/* we need to parse the version identifier of the current file so that
 	 * we can correctly parse out the included sections
 	 */
 	u32 version = 0;
 	err = riot_bin_stream_try_read(stream, &version, sizeof(version));
-	READER_ASSERT(!err, err, failure, "Failed to read INIBIN version!")
+	BIN_ASSERT(!err, err, failure, "Failed to read INIBIN version!")
 
 	dbglog("INIBIN version: %u\n", version);
 	assert(version > 0);
@@ -400,22 +391,22 @@ riot_bin_try_read(struct mem_t buf, struct riot_bin *out) {
 	node.type = RIOT_BIN_NODE_TYPE_U32;
 	node.node_u32 = version;
 
-	READER_ASSERT(riot_bin_try_add_section(&bin, &key, &node), RIOT_IO_ERROR_ALLOC, failure, "Failed to add %s section to bin repr!", key.str)
+	BIN_ASSERT(riot_bin_try_add_section(&bin, &key, &node), RIOT_IO_ERROR_ALLOC, failure, "Failed to add %s section to bin repr!", key.str)
 
 	if (version >= 2) {
 		err = riot_bin_try_read_linked_files(stream, &bin);
-		READER_ASSERT(!err, err, failure, "Failed to read linked files!")
+		BIN_ASSERT(!err, err, failure, "Failed to read linked files!")
 	}
 
 	err = riot_bin_try_read_entries(stream, &bin);
-	READER_ASSERT(!err, err, failure, "Failed to read prop entries!")
+	BIN_ASSERT(!err, err, failure, "Failed to read prop entries!")
 
 	if (version >= 3 && has_patches) {
 		err = riot_bin_try_read_patches(stream, &bin);
-		READER_ASSERT(!err, err, failure, "Failed to read patch entries!");
+		BIN_ASSERT(!err, err, failure, "Failed to read patch entries!");
 	}
 
-	READER_ASSERT(!riot_bin_stream_has_input(stream), RIOT_IO_ERROR_CORRUPT, failure, "Stream input remaining!")
+	BIN_ASSERT(!riot_bin_stream_has_input(stream), RIOT_IO_ERROR_CORRUPT, failure, "Stream input remaining!")
 
 	*out = bin;
 
@@ -445,7 +436,7 @@ riot_bin_try_read_linked_files(struct stream_t *stream, struct riot_bin *bin) {
 	};
 
 	err = riot_bin_stream_try_read(stream, &list.node_list.count, sizeof(list.node_list.count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of linked files!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of linked files!")
 
 	dbglog("Linked files: %u\n", list.node_list.count);
 
@@ -459,11 +450,11 @@ riot_bin_try_read_linked_files(struct stream_t *stream, struct riot_bin *bin) {
 		struct riot_bin_node *elem = &list.node_list.items[i];
 
 		err = riot_bin_stream_try_read_node(stream, RIOT_BIN_NODE_TYPE_STR, elem, &bin->mem_pool);
-		READER_ASSERT(!err, err, failure, "Failed to read linked files %u!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read linked files %u!", i)
 	}
 
 success:
-	READER_ASSERT(riot_bin_try_add_section(bin, &key, &list), RIOT_IO_ERROR_ALLOC, failure, "Failed to add %s section to bin repr!", key.str)
+	BIN_ASSERT(riot_bin_try_add_section(bin, &key, &list), RIOT_IO_ERROR_ALLOC, failure, "Failed to add %s section to bin repr!", key.str)
 
 failure:
 	return err;
@@ -480,15 +471,15 @@ riot_bin_try_read_entry(struct stream_t *stream, hashes_fnv1a_val_t *name_hash, 
 
 	u32 size = 0;
 	err = riot_bin_stream_try_read(stream, &size, sizeof(size));
-	READER_ASSERT(!err, err, failure, "Failed to read total size of prop entry embed!")
+	BIN_ASSERT(!err, err, failure, "Failed to read total size of prop entry embed!")
 
 	size_t prev_cur = stream->cur;
 
 	err = riot_bin_stream_try_read(stream, name_hash, sizeof(*name_hash));
-	READER_ASSERT(!err, err, failure, "Failed to read prop entry embed name hash!")
+	BIN_ASSERT(!err, err, failure, "Failed to read prop entry embed name hash!")
 
 	err = riot_bin_stream_try_read(stream, &embed->count, sizeof(embed->count));
-	READER_ASSERT(!err, err, failure, "Failed to read count of prop entry embed fields!")
+	BIN_ASSERT(!err, err, failure, "Failed to read count of prop entry embed fields!")
 
 	embed->items = pool->fields_head;
 	pool->fields_head += embed->count;
@@ -497,18 +488,18 @@ riot_bin_try_read_entry(struct stream_t *stream, hashes_fnv1a_val_t *name_hash, 
 		struct riot_bin_field *elem = &embed->items[i];
 
 		err = riot_bin_stream_try_read(stream, &elem->name_hash, sizeof(elem->name_hash));
-		READER_ASSERT(!err, err, failure, "Failed to read prop entry embed's field %u name hash!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read prop entry embed's field %u name hash!", i)
 
 		u8 raw_type;
 		err = riot_bin_stream_try_read(stream, &raw_type, sizeof(raw_type));
-		READER_ASSERT(!err, err, failure, "Failed to read prop entry embed's field %u type!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read prop entry embed's field %u type!", i)
 
 		enum riot_bin_node_type type = riot_bin_raw_type_to_node_type(raw_type);
 		err = riot_bin_stream_try_read_node(stream, type, &elem->val, pool);
-		READER_ASSERT(!err, err, failure, "Failed to read prop entry embed's field %u value!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read prop entry embed's field %u value!", i)
 	}
 
-	READER_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
+	BIN_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
 			"Prop entry embed parsing failed (%zu bytes read, %u bytes expected)!", stream->cur - prev_cur, size)
 
 failure:
@@ -534,7 +525,7 @@ riot_bin_try_read_entries(struct stream_t *stream, struct riot_bin *bin) {
 	};
 
 	err = riot_bin_stream_try_read(stream, &map.node_map.count, sizeof(map.node_map.count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of prop entries!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of prop entries!")
 
 	dbglog("Prop entries: %u\n", map.node_map.count);
 
@@ -542,7 +533,7 @@ riot_bin_try_read_entries(struct stream_t *stream, struct riot_bin *bin) {
 
 	hashes_fnv1a_val_t *entry_name_hashes = (hashes_fnv1a_val_t*)&stream->buf.ptr[stream->cur];
 	err = riot_bin_stream_try_skip(stream, map.node_map.count * sizeof(hashes_fnv1a_val_t));
-	READER_ASSERT(!err, err, failure, "Failed to skip over prop entry name hashes!")
+	BIN_ASSERT(!err, err, failure, "Failed to skip over prop entry name hashes!")
 
 	map.node_map.items = bin->mem_pool.pairs_head;
 	bin->mem_pool.pairs_head += map.node_map.count;
@@ -556,11 +547,11 @@ riot_bin_try_read_entries(struct stream_t *stream, struct riot_bin *bin) {
 		elem->val.node_embed.name_hash = entry_name_hash;
 
 		err = riot_bin_try_read_entry(stream, &elem->key.node_hash, &elem->val.node_embed, &bin->mem_pool);
-		READER_ASSERT(!err, err, failure, "Failed to read embed entry %u!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read embed entry %u!", i)
 	}
 
 success:
-	READER_ASSERT(riot_bin_try_add_section(bin, &key, &map), RIOT_IO_ERROR_ALLOC, failure, "Failed to add %s section to bin repr!", key.str)
+	BIN_ASSERT(riot_bin_try_add_section(bin, &key, &map), RIOT_IO_ERROR_ALLOC, failure, "Failed to add %s section to bin repr!", key.str)
 
 failure:
 	return err;
@@ -579,11 +570,11 @@ riot_bin_try_read_patch(struct stream_t *stream, hashes_fnv1a_val_t *name_hash, 
 	enum riot_io_error err = RIOT_IO_ERROR_OK;
 
 	err = riot_bin_stream_try_read(stream, name_hash, sizeof(*name_hash));
-	READER_ASSERT(!err, err, failure, "Failed to read patch entry embed name hash!")
+	BIN_ASSERT(!err, err, failure, "Failed to read patch entry embed name hash!")
 
 	u32 size = 0;
 	err = riot_bin_stream_try_read(stream, &size, sizeof(size));
-	READER_ASSERT(!err, err, failure, "Failed to read total size of patch entry embed!")
+	BIN_ASSERT(!err, err, failure, "Failed to read total size of patch entry embed!")
 
 	size_t prev_cur = stream->cur;
 
@@ -598,17 +589,17 @@ riot_bin_try_read_patch(struct stream_t *stream, hashes_fnv1a_val_t *name_hash, 
 
 	u8 raw_type;
 	err = riot_bin_stream_try_read(stream, &raw_type, sizeof(raw_type));
-	READER_ASSERT(!err, err, failure, "Failed to read raw type of patch entry embed value!");
+	BIN_ASSERT(!err, err, failure, "Failed to read raw type of patch entry embed value!");
 
 	enum riot_bin_node_type type = riot_bin_raw_type_to_node_type(raw_type);
 
 	err = riot_bin_stream_try_read_node(stream, RIOT_BIN_NODE_TYPE_STR, path, pool);
-	READER_ASSERT(!err, err, failure, "Failed to read patch entry embed path!")
+	BIN_ASSERT(!err, err, failure, "Failed to read patch entry embed path!")
 
 	err = riot_bin_stream_try_read_node(stream, type, value, pool);
-	READER_ASSERT(!err, err, failure, "Failed to read patch entry embed value!")
+	BIN_ASSERT(!err, err, failure, "Failed to read patch entry embed value!")
 
-	READER_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_ALLOC, failure,
+	BIN_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_ALLOC, failure,
 			"Patch entry embed parsing failed (%zu bytes read, %u bytes expected)!", stream->cur - prev_cur, size)
 
 failure:
@@ -636,7 +627,7 @@ riot_bin_try_read_patches(struct stream_t *stream, struct riot_bin *bin) {
 	};
 
 	err = riot_bin_stream_try_read(stream, &map.node_map.count, sizeof(map.node_map.count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of patches!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of patches!")
 
 	if (!map.node_map.count) goto success;
 
@@ -650,11 +641,11 @@ riot_bin_try_read_patches(struct stream_t *stream, struct riot_bin *bin) {
 		elem->val.node_embed.name_hash = patch_name_hash;
 
 		err = riot_bin_try_read_patch(stream, &elem->key.node_hash, &elem->val.node_embed, &bin->mem_pool);
-		READER_ASSERT(!err, err, failure, "Failed to read patch %u!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read patch %u!", i)
 	}
 
 success:
-	READER_ASSERT(riot_bin_try_add_section(bin, &key, &map), RIOT_IO_ERROR_ALLOC, failure, "Failed to add %s section to bin repr!", key.str)
+	BIN_ASSERT(riot_bin_try_add_section(bin, &key, &map), RIOT_IO_ERROR_ALLOC, failure, "Failed to add %s section to bin repr!", key.str)
 
 failure:
 	return err;
@@ -665,17 +656,20 @@ failure:
  * ===========================================================================
  */
 static enum riot_io_error
-riot_bin_stream_try_size_str(struct stream_t *stream) {
+riot_bin_stream_try_size_str(struct stream_t *stream, struct riot_bin_alloc_info *alloc_info) {
 	assert(stream);
+	assert(alloc_info);
 
 	enum riot_io_error err = RIOT_IO_ERROR_OK;
 
 	u16 len = 0;
 	err = riot_bin_stream_try_read(stream, &len, sizeof(len));
-	READER_ASSERT(!err, err, failure, "Failed to read string length!")
-	
+	BIN_ASSERT(!err, err, failure, "Failed to read string length!")
+
 	err = riot_bin_stream_try_skip(stream, len);
-	READER_ASSERT(!err, err, failure, "Failed to skip string bytes!")
+	BIN_ASSERT(!err, err, failure, "Failed to skip string bytes!")
+
+	alloc_info->strings_len += len;
 	
 failure:
 	return err;
@@ -690,7 +684,7 @@ riot_bin_stream_try_size_ptr(struct stream_t *stream, struct riot_bin_alloc_info
 
 	hashes_fnv1a_val_t name_hash = 0;
 	err = riot_bin_stream_try_read(stream, &name_hash, sizeof(name_hash));
-	READER_ASSERT(!err, err, failure, "Failed to read ptr name hash!")
+	BIN_ASSERT(!err, err, failure, "Failed to read ptr name hash!")
 
 	/* if the hash is empty, we have a null pointer and so we can skip this
 	 * node (err == RIOT_IO_ERROR_OK)
@@ -700,28 +694,28 @@ riot_bin_stream_try_size_ptr(struct stream_t *stream, struct riot_bin_alloc_info
 
 	u32 size = 0;
 	err = riot_bin_stream_try_read(stream, &size, sizeof(size));
-	READER_ASSERT(!err, err, failure, "Failed to read the total size")
+	BIN_ASSERT(!err, err, failure, "Failed to read the total size")
 
 	size_t prev_cur = stream->cur;
 
 	u16 count = 0;
 	err = riot_bin_stream_try_read(stream, &count, sizeof(count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of elements after pointer!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of elements after pointer!")
 
 	for (u16 i = 0; i < count; i++) {
 		err = riot_bin_stream_try_skip(stream, sizeof(hashes_fnv1a_val_t));
-		READER_ASSERT(!err, err, failure, "Failed to skip ptr element %u name hash!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to skip ptr element %u name hash!", i)
 
 		u8 raw_type;
 		err = riot_bin_stream_try_read(stream, &raw_type, sizeof(raw_type));
-		READER_ASSERT(!err, err, failure, "Failed to read ptr element %u type!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read ptr element %u type!", i)
 
 		enum riot_bin_node_type type = riot_bin_raw_type_to_node_type(raw_type);
 		err = riot_bin_stream_try_size_node(stream, type, alloc_info);
-		READER_ASSERT(!err, err, failure, "Failed to size ptr element %u!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to size ptr element %u!", i)
 	}
 
-	READER_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
+	BIN_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
 			"Ptr parsing failed (%zu bytes read, %u bytes expected)!", stream->cur - prev_cur, size)
 
 	alloc_info->fields_count += count;
@@ -738,32 +732,32 @@ riot_bin_stream_try_size_embed(struct stream_t *stream, struct riot_bin_alloc_in
 	enum riot_io_error err = RIOT_IO_ERROR_OK;
 
 	err = riot_bin_stream_try_skip(stream, sizeof(hashes_fnv1a_val_t));
-	READER_ASSERT(!err, err, failure, "Failed to skip embed name hash!")
+	BIN_ASSERT(!err, err, failure, "Failed to skip embed name hash!")
 
 	u32 size = 0;
 	err = riot_bin_stream_try_read(stream, &size, sizeof(size));
-	READER_ASSERT(!err, err, failure, "Failed to read total size of embed!")
+	BIN_ASSERT(!err, err, failure, "Failed to read total size of embed!")
 
 	size_t prev_cur = stream->cur;
 
 	u16 count = 0;
 	err = riot_bin_stream_try_read(stream, &count, sizeof(count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of elements in embed!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of elements in embed!")
 
 	for (u16 i = 0; i < count; i++) {
 		err = riot_bin_stream_try_skip(stream, sizeof(hashes_fnv1a_val_t));
-		READER_ASSERT(!err, err, failure, "Failed to skip embed element %u name hash!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to skip embed element %u name hash!", i)
 
 		u8 raw_type;
 		err = riot_bin_stream_try_read(stream, &raw_type, sizeof(raw_type));
-		READER_ASSERT(!err, err, failure, "Failed to read embed element %u raw type!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read embed element %u raw type!", i)
 
 		enum riot_bin_node_type type = riot_bin_raw_type_to_node_type(raw_type);
 		err = riot_bin_stream_try_size_node(stream, type, alloc_info);
-		READER_ASSERT(!err, err, failure, "Failed to size embed element %u!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to size embed element %u!", i)
 	}
 
-	READER_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
+	BIN_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
 			"Embed parsing failed (%zu bytes read, %u bytes expected)!", stream->cur - prev_cur, size)
 
 	alloc_info->fields_count += count;
@@ -781,27 +775,27 @@ riot_bin_stream_try_size_list(struct stream_t *stream, struct riot_bin_alloc_inf
 
 	u8 raw_type = RIOT_BIN_NODE_TYPE_NONE;
 	err = riot_bin_stream_try_read(stream, &raw_type, sizeof(raw_type));
-	READER_ASSERT(!err, err, failure, "Failed to read list element type!")
+	BIN_ASSERT(!err, err, failure, "Failed to read list element type!")
 
 	enum riot_bin_node_type type = riot_bin_raw_type_to_node_type(raw_type);
-	READER_ASSERT(!riot_bin_node_type_is_container(type), RIOT_IO_ERROR_CORRUPT, failure, "List cannot contain other container types")
+	BIN_ASSERT(!riot_bin_node_type_is_container(type), RIOT_IO_ERROR_CORRUPT, failure, "List cannot contain other container types")
 
 	u32 size = 0;
 	err = riot_bin_stream_try_read(stream, &size, sizeof(size));
-	READER_ASSERT(!err, err, failure, "Failed to read total size of list!")
+	BIN_ASSERT(!err, err, failure, "Failed to read total size of list!")
 
 	size_t prev_cur = stream->cur;
 
 	u32 count = 0;
 	err = riot_bin_stream_try_read(stream, &count, sizeof(count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of elements in list!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of elements in list!")
 
 	for (u32 i = 0; i < count; i++) {
 		err = riot_bin_stream_try_size_node(stream, type, alloc_info);
-		READER_ASSERT(!err, err, failure, "Failed to read list element %u", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read list element %u", i)
 	}
 
-	READER_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
+	BIN_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
 			"List parsing failed (%zu bytes read, %u bytes expected)!", stream->cur - prev_cur, size)
 
 failure:
@@ -817,21 +811,21 @@ riot_bin_stream_try_size_option(struct stream_t *stream, struct riot_bin_alloc_i
 
 	u8 raw_type = RIOT_BIN_NODE_TYPE_NONE;
 	err = riot_bin_stream_try_read(stream, &raw_type, sizeof(raw_type));
-	READER_ASSERT(!err, err, failure, "Failed to read option item type!")
+	BIN_ASSERT(!err, err, failure, "Failed to read option item type!")
 
 	enum riot_bin_node_type type = riot_bin_raw_type_to_node_type(raw_type);
-	READER_ASSERT(!riot_bin_node_type_is_container(type), RIOT_IO_ERROR_CORRUPT, failure, "Option cannot contain other container types!")
+	BIN_ASSERT(!riot_bin_node_type_is_container(type), RIOT_IO_ERROR_CORRUPT, failure, "Option cannot contain other container types!")
 
 	u8 has_item = 0;
 	err = riot_bin_stream_try_read(stream, &has_item, sizeof(has_item));
-	READER_ASSERT(!err, err, failure, "Failed to read option item presence flag!")
+	BIN_ASSERT(!err, err, failure, "Failed to read option item presence flag!")
 
 	/* if the option has no value, we can simply skip it
 	 */
 	if (!has_item) return err;
 
 	err = riot_bin_stream_try_size_node(stream, type, alloc_info);
-	READER_ASSERT(!err, err, failure, "Failed to size option item!")
+	BIN_ASSERT(!err, err, failure, "Failed to size option item!")
 
 failure:
 	return err;
@@ -846,36 +840,36 @@ riot_bin_stream_try_size_map(struct stream_t *stream, struct riot_bin_alloc_info
 
 	u8 raw_key_type = RIOT_BIN_NODE_TYPE_NONE, raw_val_type = RIOT_BIN_NODE_TYPE_NONE;
 	err = riot_bin_stream_try_read(stream, &raw_key_type, sizeof(raw_key_type));
-	READER_ASSERT(!err, err, failure, "Failed to read map key type!")
+	BIN_ASSERT(!err, err, failure, "Failed to read map key type!")
 
 	err = riot_bin_stream_try_read(stream, &raw_val_type, sizeof(raw_val_type));
-	READER_ASSERT(!err, err, failure, "Failed to read map val type!")
+	BIN_ASSERT(!err, err, failure, "Failed to read map val type!")
 
 	enum riot_bin_node_type key_type = riot_bin_raw_type_to_node_type(raw_key_type);
-	READER_ASSERT(riot_bin_node_type_is_primitive(key_type), RIOT_IO_ERROR_CORRUPT, failure, "Map keys must be primitive!")
+	BIN_ASSERT(riot_bin_node_type_is_primitive(key_type), RIOT_IO_ERROR_CORRUPT, failure, "Map keys must be primitive!")
 
 	enum riot_bin_node_type val_type = riot_bin_raw_type_to_node_type(raw_val_type);
-	READER_ASSERT(!riot_bin_node_type_is_container(val_type), RIOT_IO_ERROR_CORRUPT, failure, "Map vals must not be containers!")
+	BIN_ASSERT(!riot_bin_node_type_is_container(val_type), RIOT_IO_ERROR_CORRUPT, failure, "Map vals must not be containers!")
 
 	u32 size = 0;
 	err = riot_bin_stream_try_read(stream, &size, sizeof(size));
-	READER_ASSERT(!err, err, failure, "Failed to read map total size!")
+	BIN_ASSERT(!err, err, failure, "Failed to read map total size!")
 
 	size_t prev_cur = stream->cur;
 
 	u32 count = 0;
 	err = riot_bin_stream_try_read(stream, &count, sizeof(count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of elements in map!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of elements in map!")
 
 	for (u32 i = 0; i < count; i++) {
 		err = riot_bin_stream_try_size_node(stream, key_type, alloc_info);
-		READER_ASSERT(!err, err, failure, "Failed to size map key %u", i)
+		BIN_ASSERT(!err, err, failure, "Failed to size map key %u", i)
 
 		err = riot_bin_stream_try_size_node(stream, val_type, alloc_info);
-		READER_ASSERT(!err, err, failure, "Failed to size map val %u", i)
+		BIN_ASSERT(!err, err, failure, "Failed to size map val %u", i)
 	}
 
-	READER_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
+	BIN_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
 			"Map parsing failed (%zu bytes read, %u bytes expected)!", stream->cur - prev_cur, size)
 
 	alloc_info->pairs_count += count;
@@ -917,47 +911,47 @@ riot_bin_stream_try_size_node(struct stream_t *stream, enum riot_bin_node_type t
 		case RIOT_BIN_NODE_TYPE_LINK:
 		case RIOT_BIN_NODE_TYPE_FLAG:
 			err = riot_bin_stream_try_skip(stream, riot_bin_node_type_to_size(type));
-			READER_ASSERT(!err, err, failure, "Failed to skip bytes for primitive node of type %u!", type)
+			BIN_ASSERT(!err, err, failure, "Failed to skip bytes for primitive node of type %u!", type)
 			break;
 
 		/* complex types require special-case handling, as they usually
 		 * handle some kind of memory allocation which can fail
 		 */
 		case RIOT_BIN_NODE_TYPE_STR:
-			err = riot_bin_stream_try_size_str(stream);
-			READER_ASSERT(!err, err, failure, "Failed to size string node!")
+			err = riot_bin_stream_try_size_str(stream, alloc_info);
+			BIN_ASSERT(!err, err, failure, "Failed to size string node!")
 			break;
 
 		case RIOT_BIN_NODE_TYPE_LIST:
 		case RIOT_BIN_NODE_TYPE_LIST2:
 			err = riot_bin_stream_try_size_list(stream, alloc_info);
-			READER_ASSERT(!err, err, failure, "Failed to size list node!")
+			BIN_ASSERT(!err, err, failure, "Failed to size list node!")
 			break;
 
 		case RIOT_BIN_NODE_TYPE_PTR:
 			err = riot_bin_stream_try_size_ptr(stream, alloc_info);
-			READER_ASSERT(!err, err, failure, "Failed to size ptr node!")
+			BIN_ASSERT(!err, err, failure, "Failed to size ptr node!")
 			break;
 
 		case RIOT_BIN_NODE_TYPE_EMBED:
 			err = riot_bin_stream_try_size_embed(stream, alloc_info);
-			READER_ASSERT(!err, err, failure, "Failed to size embed node!")
+			BIN_ASSERT(!err, err, failure, "Failed to size embed node!")
 			break;
 
 		case RIOT_BIN_NODE_TYPE_OPTION:
 			err = riot_bin_stream_try_size_option(stream, alloc_info);
-			READER_ASSERT(!err, err, failure, "Failed to size option node!")
+			BIN_ASSERT(!err, err, failure, "Failed to size option node!")
 			break;
 
 		case RIOT_BIN_NODE_TYPE_MAP:
 			err = riot_bin_stream_try_size_map(stream, alloc_info);
-			READER_ASSERT(!err, err, failure, "Failed to size map node!")
+			BIN_ASSERT(!err, err, failure, "Failed to size map node!")
 			break;
 
 		/* an unknown type was encountered, which should never happen
 		 */
 		default:
-			READER_ASSERT(false, RIOT_IO_ERROR_CORRUPT, failure, "Unknown node type %u encountered!", type)
+			BIN_ASSERT(false, RIOT_IO_ERROR_CORRUPT, failure, "Unknown node type %u encountered!", type)
 			break;
 	}
 
@@ -972,21 +966,21 @@ failure:
  * ===========================================================================
  */
 static enum riot_io_error
-riot_bin_stream_try_read_str(struct stream_t *stream, struct riot_bin_node *out) {
+riot_bin_stream_try_read_str(struct stream_t *stream, struct riot_bin_node *out, struct riot_bin_mem_pool *pool) {
 	assert(stream);
 	assert(out);
+	assert(pool);
 
 	enum riot_io_error err = RIOT_IO_ERROR_OK;
 
 	err = riot_bin_stream_try_read(stream, &out->node_str.len, sizeof(out->node_str.len));
-	READER_ASSERT(!err, err, failure, "Failed to read string length!")
+	BIN_ASSERT(!err, err, failure, "Failed to read string length!")
 
-	out->node_str.ptr = (char*)&stream->buf.ptr[stream->cur];
+	out->node_str.ptr = pool->strings_head;
+	pool->strings_head += out->node_str.len;
 
-	err = riot_bin_stream_try_skip(stream, out->node_str.len);
-	READER_ASSERT(!err, err, failure, "Failed to skip string bytes!")
-
-	return err;
+	err = riot_bin_stream_try_read(stream, out->node_str.ptr, out->node_str.len);
+	BIN_ASSERT(!err, err, failure, "Failed to skip string bytes!")
 
 failure:
 	return err;
@@ -1001,7 +995,7 @@ riot_bin_stream_try_read_ptr(struct stream_t *stream, struct riot_bin_node *out,
 	enum riot_io_error err = RIOT_IO_ERROR_OK;
 
 	err = riot_bin_stream_try_read(stream, &out->node_ptr.name_hash, sizeof(out->node_ptr.name_hash));
-	READER_ASSERT(!err, err, failure, "Failed to read ptr name hash!")
+	BIN_ASSERT(!err, err, failure, "Failed to read ptr name hash!")
 
 	/* if the hash is empty, we have a null pointer and so we can skip this
 	 * node (err == RIOT_IO_ERROR_OK)
@@ -1011,12 +1005,12 @@ riot_bin_stream_try_read_ptr(struct stream_t *stream, struct riot_bin_node *out,
 
 	u32 size = 0;
 	err = riot_bin_stream_try_read(stream, &size, sizeof(size));
-	READER_ASSERT(!err, err, failure, "Failed to read the total size")
+	BIN_ASSERT(!err, err, failure, "Failed to read the total size")
 
 	size_t prev_cur = stream->cur;
 
 	err = riot_bin_stream_try_read(stream, &out->node_ptr.count, sizeof(out->node_ptr.count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of elements after pointer!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of elements after pointer!")
 
 	out->node_ptr.items = pool->fields_head;
 	pool->fields_head += out->node_ptr.count;
@@ -1025,18 +1019,18 @@ riot_bin_stream_try_read_ptr(struct stream_t *stream, struct riot_bin_node *out,
 		struct riot_bin_field *elem = &out->node_ptr.items[i];
 
 		err = riot_bin_stream_try_read(stream, &elem->name_hash, sizeof(elem->name_hash));
-		READER_ASSERT(!err, err, failure, "Failed to read ptr element %u name hash!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read ptr element %u name hash!", i)
 
 		u8 raw_type;
 		err = riot_bin_stream_try_read(stream, &raw_type, sizeof(raw_type));
-		READER_ASSERT(!err, err, failure, "Failed to read ptr element %u type!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read ptr element %u type!", i)
 
 		enum riot_bin_node_type type = riot_bin_raw_type_to_node_type(raw_type);
 		err = riot_bin_stream_try_read_node(stream, type, &elem->val, pool);
-		READER_ASSERT(!err, err, failure, "Failed to read ptr element %u!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read ptr element %u!", i)
 	}
 
-	READER_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
+	BIN_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
 			"Ptr parsing failed (%zu bytes read, %u bytes expected)!", stream->cur - prev_cur, size)
 
 failure:
@@ -1052,16 +1046,16 @@ riot_bin_stream_try_read_embed(struct stream_t *stream, struct riot_bin_node *ou
 	enum riot_io_error err = RIOT_IO_ERROR_OK;
 
 	err = riot_bin_stream_try_read(stream, &out->node_embed.name_hash, sizeof(out->node_embed.name_hash));
-	READER_ASSERT(!err, err, failure, "Failed to read embed name hash!")
+	BIN_ASSERT(!err, err, failure, "Failed to read embed name hash!")
 
 	u32 size = 0;
 	err = riot_bin_stream_try_read(stream, &size, sizeof(size));
-	READER_ASSERT(!err, err, failure, "Failed to read total size of embed!")
+	BIN_ASSERT(!err, err, failure, "Failed to read total size of embed!")
 
 	size_t prev_cur = stream->cur;
 
 	err = riot_bin_stream_try_read(stream, &out->node_embed.count, sizeof(out->node_embed.count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of elements in embed!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of elements in embed!")
 
 	out->node_embed.items = pool->fields_head;
 	pool->fields_head += out->node_embed.count;
@@ -1070,18 +1064,18 @@ riot_bin_stream_try_read_embed(struct stream_t *stream, struct riot_bin_node *ou
 		struct riot_bin_field *elem = &out->node_embed.items[i];
 
 		err = riot_bin_stream_try_read(stream, &elem->name_hash, sizeof(elem->name_hash));
-		READER_ASSERT(!err, err, failure, "Failed to read embed element %u name hash!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read embed element %u name hash!", i)
 
 		u8 raw_type;
 		err = riot_bin_stream_try_read(stream, &raw_type, sizeof(raw_type));
-		READER_ASSERT(!err, err, failure, "Failed to read embed element %u raw type!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read embed element %u raw type!", i)
 
 		enum riot_bin_node_type type = riot_bin_raw_type_to_node_type(raw_type);
 		err = riot_bin_stream_try_read_node(stream, type, &elem->val, pool);
-		READER_ASSERT(!err, err, failure, "Failed to read embed element %u!", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read embed element %u!", i)
 	}
 
-	READER_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
+	BIN_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
 			"Embed parsing failed (%zu bytes read, %u bytes expected)!", stream->cur - prev_cur, size)
 
 failure:
@@ -1099,19 +1093,19 @@ riot_bin_stream_try_read_list(struct stream_t *stream, struct riot_bin_node *out
 
 	u8 raw_type = RIOT_BIN_NODE_TYPE_NONE;
 	err = riot_bin_stream_try_read(stream, &raw_type, sizeof(raw_type));
-	READER_ASSERT(!err, err, failure, "Failed to read list element type!")
+	BIN_ASSERT(!err, err, failure, "Failed to read list element type!")
 
 	out->node_list.type = riot_bin_raw_type_to_node_type(raw_type);
-	READER_ASSERT(!riot_bin_node_type_is_container(out->node_list.type), RIOT_IO_ERROR_CORRUPT, failure, "List cannot contain other container types")
+	BIN_ASSERT(!riot_bin_node_type_is_container(out->node_list.type), RIOT_IO_ERROR_CORRUPT, failure, "List cannot contain other container types")
 
 	u32 size = 0;
 	err = riot_bin_stream_try_read(stream, &size, sizeof(size));
-	READER_ASSERT(!err, err, failure, "Failed to read total size of list!")
+	BIN_ASSERT(!err, err, failure, "Failed to read total size of list!")
 
 	size_t prev_cur = stream->cur;
 
 	err = riot_bin_stream_try_read(stream, &out->node_list.count, sizeof(out->node_list.count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of elements in list!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of elements in list!")
 
 	out->node_list.items = pool->nodes_head;
 	pool->nodes_head += out->node_list.count;
@@ -1120,10 +1114,10 @@ riot_bin_stream_try_read_list(struct stream_t *stream, struct riot_bin_node *out
 		struct riot_bin_node *elem = &out->node_list.items[i];
 
 		err = riot_bin_stream_try_read_node(stream, out->node_list.type, elem, pool);
-		READER_ASSERT(!err, err, failure, "Failed to read list element %u", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read list element %u", i)
 	}
 
-	READER_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
+	BIN_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
 			"List parsing failed (%zu bytes read, %u bytes expected)!", stream->cur - prev_cur, size)
 
 failure:
@@ -1140,14 +1134,14 @@ riot_bin_stream_try_read_option(struct stream_t *stream, struct riot_bin_node *o
 
 	u8 raw_type = RIOT_BIN_NODE_TYPE_NONE;
 	err = riot_bin_stream_try_read(stream, &raw_type, sizeof(raw_type));
-	READER_ASSERT(!err, err, failure, "Failed to read option item type!")
+	BIN_ASSERT(!err, err, failure, "Failed to read option item type!")
 
 	out->node_option.type = riot_bin_raw_type_to_node_type(raw_type);
-	READER_ASSERT(!riot_bin_node_type_is_container(out->node_option.type), RIOT_IO_ERROR_CORRUPT, failure, "Option cannot contain other container types!")
+	BIN_ASSERT(!riot_bin_node_type_is_container(out->node_option.type), RIOT_IO_ERROR_CORRUPT, failure, "Option cannot contain other container types!")
 
 	u8 has_item = 0;
 	err = riot_bin_stream_try_read(stream, &has_item, sizeof(has_item));
-	READER_ASSERT(!err, err, failure, "Failed to read option item presence flag!")
+	BIN_ASSERT(!err, err, failure, "Failed to read option item presence flag!")
 
 	/* if the option has no value, we can simply skip it
 	 */
@@ -1157,7 +1151,7 @@ riot_bin_stream_try_read_option(struct stream_t *stream, struct riot_bin_node *o
 	pool->nodes_head += 1;
 
 	err = riot_bin_stream_try_read_node(stream, out->node_option.type, out->node_option.item, pool);
-	READER_ASSERT(!err, err, failure, "Failed to read option item!")
+	BIN_ASSERT(!err, err, failure, "Failed to read option item!")
 
 failure:
 	return err;
@@ -1173,25 +1167,25 @@ riot_bin_stream_try_read_map(struct stream_t *stream, struct riot_bin_node *out,
 
 	u8 raw_key_type = RIOT_BIN_NODE_TYPE_NONE, raw_val_type = RIOT_BIN_NODE_TYPE_NONE;
 	err = riot_bin_stream_try_read(stream, &raw_key_type, sizeof(raw_key_type));
-	READER_ASSERT(!err, err, failure, "Failed to read map key type!")
+	BIN_ASSERT(!err, err, failure, "Failed to read map key type!")
 
 	err = riot_bin_stream_try_read(stream, &raw_val_type, sizeof(raw_val_type));
-	READER_ASSERT(!err, err, failure, "Failed to read map val type!")
+	BIN_ASSERT(!err, err, failure, "Failed to read map val type!")
 
 	out->node_map.key_type = riot_bin_raw_type_to_node_type(raw_key_type);
-	READER_ASSERT(riot_bin_node_type_is_primitive(out->node_map.key_type), RIOT_IO_ERROR_CORRUPT, failure, "Map keys must be primitive!")
+	BIN_ASSERT(riot_bin_node_type_is_primitive(out->node_map.key_type), RIOT_IO_ERROR_CORRUPT, failure, "Map keys must be primitive!")
 
 	out->node_map.val_type = riot_bin_raw_type_to_node_type(raw_val_type);
-	READER_ASSERT(!riot_bin_node_type_is_container(out->node_map.val_type), RIOT_IO_ERROR_CORRUPT, failure, "Map vals must not be containers!")
+	BIN_ASSERT(!riot_bin_node_type_is_container(out->node_map.val_type), RIOT_IO_ERROR_CORRUPT, failure, "Map vals must not be containers!")
 
 	u32 size = 0;
 	err = riot_bin_stream_try_read(stream, &size, sizeof(size));
-	READER_ASSERT(!err, err, failure, "Failed to read map total size!")
+	BIN_ASSERT(!err, err, failure, "Failed to read map total size!")
 
 	size_t prev_cur = stream->cur;
 
 	err = riot_bin_stream_try_read(stream, &out->node_map.count, sizeof(out->node_map.count));
-	READER_ASSERT(!err, err, failure, "Failed to read number of elements in map!")
+	BIN_ASSERT(!err, err, failure, "Failed to read number of elements in map!")
 
 	out->node_map.items = pool->pairs_head;
 	pool->pairs_head += out->node_map.count;
@@ -1200,13 +1194,13 @@ riot_bin_stream_try_read_map(struct stream_t *stream, struct riot_bin_node *out,
 		struct riot_bin_pair *elem = &out->node_map.items[i];
 
 		err = riot_bin_stream_try_read_node(stream, out->node_map.key_type, &elem->key, pool);
-		READER_ASSERT(!err, err, failure, "Failed to read map key %u", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read map key %u", i)
 
 		err = riot_bin_stream_try_read_node(stream, out->node_map.val_type, &elem->val, pool);
-		READER_ASSERT(!err, err, failure, "Failed to read map val %u", i)
+		BIN_ASSERT(!err, err, failure, "Failed to read map val %u", i)
 	}
 
-	READER_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
+	BIN_ASSERT(stream->cur - prev_cur == size, RIOT_IO_ERROR_CORRUPT, failure,
 			"Map parsing failed (%zu bytes read, %u bytes expected)!", stream->cur - prev_cur, size)
 
 failure:
@@ -1249,47 +1243,47 @@ riot_bin_stream_try_read_node(struct stream_t *stream, enum riot_bin_node_type t
 		case RIOT_BIN_NODE_TYPE_LINK:
 		case RIOT_BIN_NODE_TYPE_FLAG:
 			err = riot_bin_stream_try_read(stream, &out->raw_data, riot_bin_node_type_to_size(type));
-			READER_ASSERT(!err, err, failure, "Failed to read primitive node of type %u!", type)
+			BIN_ASSERT(!err, err, failure, "Failed to read primitive node of type %u!", type)
 			break;
 
 		/* complex types require special-case handling, as they usually
 		 * handle some kind of memory allocation which can fail
 		 */
 		case RIOT_BIN_NODE_TYPE_STR:
-			err = riot_bin_stream_try_read_str(stream, out);
-			READER_ASSERT(!err, err, failure, "Failed to read string node!")
+			err = riot_bin_stream_try_read_str(stream, out, pool);
+			BIN_ASSERT(!err, err, failure, "Failed to read string node!")
 			break;
 
 		case RIOT_BIN_NODE_TYPE_LIST:
 		case RIOT_BIN_NODE_TYPE_LIST2:
 			err = riot_bin_stream_try_read_list(stream, out, pool);
-			READER_ASSERT(!err, err, failure, "Failed to read list node!")
+			BIN_ASSERT(!err, err, failure, "Failed to read list node!")
 			break;
 
 		case RIOT_BIN_NODE_TYPE_PTR:
 			err = riot_bin_stream_try_read_ptr(stream, out, pool);
-			READER_ASSERT(!err, err, failure, "Failed to read ptr node!")
+			BIN_ASSERT(!err, err, failure, "Failed to read ptr node!")
 			break;
 
 		case RIOT_BIN_NODE_TYPE_EMBED:
 			err = riot_bin_stream_try_read_embed(stream, out, pool);
-			READER_ASSERT(!err, err, failure, "Failed to read embed node!")
+			BIN_ASSERT(!err, err, failure, "Failed to read embed node!")
 			break;
 
 		case RIOT_BIN_NODE_TYPE_OPTION:
 			err = riot_bin_stream_try_read_option(stream, out, pool);
-			READER_ASSERT(!err, err, failure, "Failed to read option node!")
+			BIN_ASSERT(!err, err, failure, "Failed to read option node!")
 			break;
 
 		case RIOT_BIN_NODE_TYPE_MAP:
 			err = riot_bin_stream_try_read_map(stream, out, pool);
-			READER_ASSERT(!err, err, failure, "Failed to read map node!")
+			BIN_ASSERT(!err, err, failure, "Failed to read map node!")
 			break;
 
 		/* an unknown type was encountered, which should never happen
 		 */
 		default:
-			READER_ASSERT(false, RIOT_IO_ERROR_CORRUPT, failure, "Unknown node type %u encountered!", type)
+			BIN_ASSERT(false, RIOT_IO_ERROR_CORRUPT, failure, "Unknown node type %u encountered!", type)
 			break;
 	}
 
