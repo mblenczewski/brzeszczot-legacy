@@ -56,31 +56,40 @@ brzeszczot::try_read_bin_file(char const *filepath, struct riot_bin *out) {
 	assert(filepath);
 	assert(out);
 
-	u8 *buf;
-	size_t len;
-	if (!(len = read_bin_file(filepath, &buf))) {
+	struct mem_t buf;
+	if (!(buf.len = read_bin_file(filepath, &buf.ptr))) {
 		errlog("Failed to read in file '%s' in binary mode\n", filepath);
 		return false;
 	}
 
-	struct mem_t src = {
-		.ptr = buf,
-		.len = len,
-	};
-
-	enum riot_io_error result = riot_bin_try_read(src, out);
-	if (result)
+	enum riot_io_error result = riot_bin_try_read(buf, out);
+	if (result) {
 		errlog("Failed to parse bin file due to '%s'\n", riot_io_error_str(result));
+	}
 
-	free(buf);
+	free(buf.ptr);
 
 	return result == RIOT_IO_ERROR_OK;
 }
 
 bool
-brzeszczot::try_write_bin_file(char const *filepath, struct riot_bin *out) {
+brzeszczot::try_write_bin_file(char const *filepath, struct riot_bin *bin) {
 	assert(filepath);
-	assert(out);
+	assert(bin);
 
-	return false;
+	struct mem_t buf;
+	enum riot_io_error result = riot_bin_try_write(bin, &buf);
+	if (result != RIOT_IO_ERROR_OK) {
+		errlog("Failed to serialise bin file due to '%s'\n", riot_io_error_str(result));
+		return false;
+	}
+
+	size_t written = write_bin_file(filepath, buf.ptr, buf.len);
+	if (written != buf.len) {
+		errlog("Failed to write serialised bin file to '%s' (%zu bytes out of %zu)\n", filepath, written, buf.len);
+	}
+
+	free(buf.ptr);
+
+	return written == buf.len;
 }
