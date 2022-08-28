@@ -39,12 +39,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	struct riot_bin bin = {};
-	if (!map_str_to_riot_bin_node_try_alloc(&bin.sections, 8)) {
-		errlog("Failed to allocate riot bin hashmap\n");
-		return 1;
-	}
-
+	struct riot_bin bin;
 	if (!brzeszczot::try_read_bin_file(argv[1], &bin)) {
 		errlog("Failed to parse file: '%s'\n", argv[1]);
 		return 1;
@@ -58,6 +53,8 @@ int main(int argc, char **argv) {
 	}
 
 	errlog("Successfully wrote input file: '%s'\n", argv[2]);
+
+	riot_bin_free(&bin);
 
 	return 0;
 

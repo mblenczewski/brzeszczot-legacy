@@ -70,7 +70,7 @@ brzeszczot::try_read_bin_file(char const *filepath, struct riot_bin *out) {
 
 	enum riot_io_error result = riot_bin_try_read(src, out);
 	if (result)
-		errlog("Failed to parse bin file due to '%s'\n", RIOT_IO_ERROR_NAME_MAP[result]);
+		errlog("Failed to parse bin file due to '%s'\n", riot_io_error_str(result));
 
 	free(buf);
 
