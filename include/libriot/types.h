@@ -192,7 +192,6 @@ HASHMAP_DECL(global, struct str_t, struct riot_bin_node, map_str_to_riot_bin_nod
 struct riot_bin {
 	map_str_to_riot_bin_node sections;
 	struct riot_bin_mem_pool mem_pool;
-	struct riot_bin_alloc_info non_pool_alloc_info;
 };
 
 static inline void
