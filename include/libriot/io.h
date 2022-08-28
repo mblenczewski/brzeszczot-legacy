@@ -195,6 +195,16 @@ riot_bin_try_read(struct mem_t buf, struct riot_bin *out);
 enum riot_io_error
 riot_bin_try_write(struct riot_bin const *src, struct mem_t *out);
 
+#define BIN_ASSERT(cond, errno, cleanup, ...)					\
+if (!(cond)) {									\
+	STREAM_ERRLOG(*stream);							\
+	errlog("%s: ", riot_io_error_str(errno));				\
+	errlog(__VA_ARGS__);							\
+	errlog("\n");								\
+	err = errno;								\
+	goto cleanup;								\
+}
+
 #ifdef __cplusplus
 };
 #endif /* __cplusplus */
